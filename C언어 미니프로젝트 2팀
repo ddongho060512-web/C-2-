@@ -1,0 +1,274 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+typedef struct hhledger {
+    char day[11];     // yyyy/mm/dd
+    char category[20]; // 카테고리
+    int rev;
+    int exp;
+    char* memo;
+} HHLEDGER;
+
+// 전역 변수
+HHLEDGER* ledger;
+int size = 100;
+int count = 0;
+int budget = 0; // 월 예산
+int balance = 0; // 잔액
+
+// 함수 선언
+void menu();
+void inputData(int i);
+void printAll();
+void search();
+void calcBalance();
+void setBudget();
+void saveFile();
+void loadFile();
+void deleteData();
+void modifyData();
+void printCategoryStat();
+void MemoInput(int i);
+void printstat(int i, int num);
+
+// 메인
+int main() {
+    ledger = (HHLEDGER*)malloc(size * sizeof(HHLEDGER));
+    loadFile(); // 시작 시 자동 불러오기
+
+    while (1) {
+        menu();
+    }
+    return 0;
+}
+
+void menu() {
+    int sel;
+    printf("\n========== 가계부 프로그램 ==========\n");
+    printf("1. 데이터 입력\n");
+    printf("2. 전체 내역 출력\n");
+    printf("3. 검색\n");
+    printf("4. 월 잔액 계산 / 예산 확인 / 남은 잔액\n");
+    printf("5. 예산 설정\n");
+    printf("6. 카테고리별 통계\n");
+    printf("7. 수정\n");
+    printf("8. 삭제\n");
+    printf("9. 저장\n");
+    printf("10. 종료\n");
+    printf("======================================\n");
+    printf("선택: ");
+    scanf("%d", &sel);
+
+    switch (sel) {
+    case 1: inputData(count); count++;break;
+    case 2: printAll(); break;
+    case 3: search(); break;
+    case 4: calcBalance(); break;
+    case 5: setBudget(); break;
+    case 6: printCategoryStat(); break;
+    case 7: modifyData(); break;
+    case 8: deleteData(); break;
+    case 9: saveFile(); break;
+    case 10: exit(1); getchar();break;
+    default: printf("메뉴 선택을 잘못하셨습니다. 다시 선택하여 주십시오.");break;
+    }
+}
+
+// 데이터 입력 함수
+void inputData(int i) {
+    int n;
+    if (count >= size) {
+        size *= 2;
+        ledger = (HHLEDGER*)realloc(ledger, size * sizeof(HHLEDGER));
+    }
+
+    printf("날짜(YYYY/MM/DD): ");
+    scanf("%s", ledger[i].day);
+
+    printf("카테고리(식비/교통/쇼핑/고정/알바/기타): ");
+    scanf("%s", ledger[i].category);
+
+    do{
+        n = 0;
+        printf("수익은 1, 지출은 -1 입력: ");
+        scanf("%d", &n);
+
+        if (n == 1) {
+            printf("수익: ");
+            scanf("%d", &ledger[i].rev);
+            ledger[i].exp = 0;
+        }
+        else if(n == -1){
+            printf("지출: -");
+            scanf("%d", &ledger[i].exp);
+            ledger[i].exp *= -1;
+            ledger[i].rev = 0;
+        }
+        else { printf("다시 입력해주십시오.\n"); }
+
+    } while (n > 1 || n < -1);
+
+    MemoInput(i);
+}
+
+// 메모 입력 (자동 줄바꿈 개선)
+void MemoInput(int i) {
+    int size = 50, j = 0;
+    char c;
+    getchar();
+    ledger[i].memo = (char*)malloc(size);
+
+    printf("메모 (엔터로 종료):");
+    while ((c = getchar()) != '\n') {
+        if (j >= size - 1) {
+            size *= 2;
+            ledger[i].memo = realloc(ledger[i].memo, size);
+        }
+        ledger[i].memo[j++] = c;
+    }
+    ledger[i].memo[j] = '\0';
+}
+
+// 전체 출력
+void printAll() {
+    printf("\n========== 전체 내역 ==========\n");
+    for (int i = 0; i < count; i++) {
+        printstat(i,1);
+    }
+}
+
+void printstat(int i, int num) {
+    switch (num)
+    {
+        case 0: printf("%s | %s | %d | %d | %s\n", ledger[i].day, ledger[i].category, ledger[i].rev, ledger[i].exp, ledger[i].memo);break;
+        case 1: printf("%d) %s | %s | %d | %d | %s\n", i+1, ledger[i].day, ledger[i].category, ledger[i].rev, ledger[i].exp, ledger[i].memo);break;
+    }
+}
+
+// 검색
+void search() {
+    char key[20];
+    printf("식비/교통/쇼핑/고정/알바/기타\n");
+    printf("검색할 카테고리 또는 날짜 입력: ");
+    scanf("%s", key);
+
+    for (int i = 0; i < count; i++) {
+        if (strstr(ledger[i].category, key) || strstr(ledger[i].day, key)) {
+            printstat(i, 0);
+        }
+    }
+}
+
+// 잔액 계산
+void calcBalance() {
+    int i;
+    balance = 0;
+    for (int i = 0; i < count; i++)
+        balance += ledger[i].rev + ledger[i].exp;
+
+    printf("현재 잔액: %d원\n", balance);
+    i = 0;
+    while(!i) {
+        if (budget > 0) {
+            printf("설정된 예산: %d원\n", budget);
+            
+            if (balance >= budget * 0.2)
+                printf("예산 80%% 이상 사용했습니다.\n");
+            i = 1;
+        }
+        else {
+            printf("설정된 예산이 존재 하지 않습니다.\n");
+            setBudget();
+            printf("현재 잔액: %d원\n", balance);
+        }
+    }
+}
+
+void setBudget() {
+    printf("월 예산 입력: ");
+    scanf("%d", &budget);
+}
+
+// 카테고리별 통계
+void printCategoryStat() {
+    int sum = 0;
+    char key[20];
+    printf("식비/교통/쇼핑/고정/알바/기타\n");
+    printf("카테고리 입력: ");
+    scanf("%s", key);
+
+    for (int i = 0; i < count; i++) {
+        if (!strcmp(key, ledger[i].category))
+            sum += ledger[i].rev + ledger[i].exp;
+    }
+
+    printf("%s 총액: %d원\n", key, sum);
+}
+
+// 수정 기능
+void modifyData() {
+    int idx;
+    printAll();
+    printf("수정할 번호 선택: ");
+    scanf("%d", &idx);
+
+    printstat(idx-1, 1);
+    inputData(idx-1);
+
+    printf("수정완료\n");
+    printstat(idx-1, 1);
+}
+
+// 삭제
+void deleteData() {
+    int idx,i;
+    printAll();
+    printf("삭제할 번호 선택: ");
+    scanf("%d", &idx);
+
+    for (i = idx; i < count - 1; i++)
+        ledger[i] = ledger[i + 1];
+    count--;
+
+    printf("=========== 삭제 완료 ===========");
+    printAll();
+}
+
+// 저장
+void saveFile() {
+    int i;
+    FILE* fp = fopen("ledger.txt", "w");
+    for (i = 0; i < count; i++) {
+        if (i!=count-1) {
+            fprintf(fp, "%s %s %d %d %s\n",
+                ledger[i].day, ledger[i].category,
+                ledger[i].rev, ledger[i].exp, ledger[i].memo);
+        }
+        else
+        {
+            fprintf(fp, "%s %s %d %d %s",
+                ledger[i].day, ledger[i].category,
+                ledger[i].rev, ledger[i].exp, ledger[i].memo);
+        }
+        
+
+    }
+    fclose(fp);
+    printf("저장 완료.\n");
+}
+
+// 불러오기
+void loadFile() {
+    FILE* fp = fopen("ledger.txt", "r");
+    if (!fp) return;
+
+    while (!feof(fp)) {
+        ledger[count].memo = malloc(200);
+        fscanf(fp, "%s %s %d %d %[^\n]",
+            ledger[count].day, ledger[count].category,
+            &ledger[count].rev, &ledger[count].exp, ledger[count].memo);
+        count++;
+    }
+    fclose(fp);
+}
